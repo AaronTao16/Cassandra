@@ -1,0 +1,6 @@
+# Project exclude paths
+/Project2/target/
+.idea
+**.iml
+access_log.csv
+access_log_ip_url.csv
