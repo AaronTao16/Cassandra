@@ -13,10 +13,13 @@ import com.datastax.oss.driver.api.querybuilder.term.Term;
 import edu.umd.cs.findbugs.annotations.NonNull;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class LogService {
     private String TABLE_NAME;
+    private long counter = 1;
 
     private final CqlSession session;
 
@@ -24,13 +27,9 @@ public class LogService {
         this.session = session;
     }
 
-    public void createLogTable(String keyspace) {
-        this.TABLE_NAME = keyspace;
-        deleteTable(keyspace);
-//        CreateTable createTable = SchemaBuilder.createTable(TABLE_NAME).ifNotExists()
-////                .withPartitionKey("id", DataTypes.UUID)
-//                .withPartitionKey("ip", DataTypes.TEXT)
-//                .withPartitionKey("req_url", DataTypes.TEXT);
+    public void createLogTable(String table) {
+        this.TABLE_NAME = table;
+        deleteTable(table);
 
 //        id ip time_stamp req_method req_url req_protocol res_status_code res_size
         String query = "CREATE TABLE " +
@@ -43,9 +42,9 @@ public class LogService {
                 "req_protocol text," +
                 "res_status_code text," +
                 "res_size text," +
-                "PRIMARY KEY ((ip),req_url));";
+                "PRIMARY KEY ((req_url,ip),id));";
         SimpleStatement simpleStatement = SimpleStatement.newInstance(query);
-        executeStatement(simpleStatement, keyspace);
+        executeStatement(simpleStatement, table);
     }
 
     public void createIndex(String keySpace, String table, String index) {
@@ -67,6 +66,7 @@ public class LogService {
         BoundStatement logBoundStatement = this.getLogInsertStatement(log);
 
         BatchStatement batch = BatchStatement.newInstance(DefaultBatchType.LOGGED, logBoundStatement);
+        System.out.println(counter++);
 
         session.execute(batch);
     }
@@ -78,12 +78,12 @@ public class LogService {
 
         List<Log> result = new ArrayList<>();
 
-        resultSet.forEach(x -> result.add(new Log(x.getInt("id"),x.getString("ip"), x.getString("req_url"))));
+        resultSet.forEach(x -> result.add(new Log(x.getString("ip"), x.getString("req_url"))));
 
         return result;
     }
 
-    public List<String> selectAllLogByURL(String keyspace) {
+    public List<String> selectAllLogByURL(String table) {
         Term term = new Term() {
             @Override
             public boolean isIdempotent() {
@@ -97,13 +97,45 @@ public class LogService {
         };
         Select select = QueryBuilder.selectFrom(TABLE_NAME).countAll().whereColumn("req_url").isEqualTo(term);
 
-        ResultSet resultSet = executeStatement(select.build(), keyspace);
+        ResultSet resultSet = executeStatement(select.build(), table);
 
         List<String> res = new ArrayList<>();
 
         resultSet.forEach(m -> res.add(m.toString()));
 
         return res;
+    }
+
+    public Map<String, Long> SelectAllLogGroupBy(String table, String target) {
+
+        String query = "SELECT ip,req_url,count(*) from " +
+                table + " GROUP BY req_url,ip;" ;
+        SimpleStatement simpleStatement = SimpleStatement.newInstance(query);
+
+        ResultSet resultSet = executeStatement(simpleStatement, table);
+
+        Map<String, Long> map = new HashMap<>();
+
+        resultSet.forEach(l -> {
+            map.put(l.getString(target), map.getOrDefault(l.getString(target), 0L) + l.getLong("count"));
+        });
+
+        return map;
+    }
+
+    public Map<String, Long> SelectAllLogGroupBy(String table, String target, Map<String, Long> map) {
+
+        String query = "SELECT ip,req_url,count(*) from " +
+                table + " GROUP BY req_url,ip;" ;
+        SimpleStatement simpleStatement = SimpleStatement.newInstance(query);
+
+        ResultSet resultSet = executeStatement(simpleStatement, table);
+
+        resultSet.forEach(l -> {
+            map.put(l.getString(target), map.getOrDefault(l.getString(target), 0L) + l.getLong("count"));
+        });
+
+        return map;
     }
 
     /**

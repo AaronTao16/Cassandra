@@ -9,6 +9,18 @@ public class Log {
     private String req_protocol;
     private String res_status_code;
     private String res_size;
+    private long count;
+
+    public Log(String ip, String req_url) {
+        this.ip = ip;
+        this.req_url = req_url;
+    }
+
+    public Log(String ip, String req_url, long count) {
+        this.ip = ip;
+        this.req_url = req_url;
+        this.count = count;
+    }
 
     public Log(long id, String ip, String time_stamp, String req_method, String req_url, String req_protocol, String res_status_code, String res_size) {
         this.id = id;
@@ -19,17 +31,6 @@ public class Log {
         this.req_protocol = req_protocol;
         this.res_status_code = res_status_code;
         this.res_size = res_size;
-    }
-
-    public Log(long id, String ip, String req_url) {
-        this.id = id;
-        this.ip = ip;
-        this.req_url = req_url;
-    }
-
-    public Log(String ip, String req_url) {
-        this.ip = ip;
-        this.req_url = req_url;
     }
 
     public long getId() {
@@ -94,5 +95,14 @@ public class Log {
 
     public void setRes_size(String res_size) {
         this.res_size = res_size;
+    }
+
+    @Override
+    public String toString() {
+        return "Log{" +
+                "ip='" + ip + '\'' +
+                ", req_url='" + req_url + '\'' +
+                ", count=" + count +
+                '}';
     }
 }
